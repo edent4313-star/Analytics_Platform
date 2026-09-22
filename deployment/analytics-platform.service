@@ -1,0 +1,41 @@
+[Unit]
+Description=Enterprise Analytics Platform API (FastAPI/Uvicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=exec
+User=analytics
+Group=analytics
+WorkingDirectory=/opt/analytics-platform/backend
+
+# Activate virtual environment and run Uvicorn
+ExecStart=/opt/analytics-platform/venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 4 \
+    --no-access-log \
+    --log-level info
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+StartLimitIntervalSec=60s
+StartLimitBurst=3
+
+# Environment
+EnvironmentFile=/opt/analytics-platform/backend/.env
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/analytics-platform/backend
+ReadWritePaths=/var/log/analytics-platform
+
+# Logging
+StandardOutput=append:/var/log/analytics-platform/api.log
+StandardError=append:/var/log/analytics-platform/api-error.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,72 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Enterprise Analytics Platform — .gitignore
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Secrets — NEVER commit ───────────────────────────────────────────────────
+.env
+*.env
+.env.local
+.env.production
+backend/.env
+*.pem
+*.key
+ssl/
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.cover
+
+# ── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+*.local
+
+# ── IDE ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Database ─────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# ── Deployment artifacts ─────────────────────────────────────────────────────
+nginx/ssl/*.crt
+nginx/ssl/*.key
+deployment/*.sh
