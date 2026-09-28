@@ -16,6 +16,29 @@ from app.services.audit_service import log_audit_event
 
 router = APIRouter()
 
+
+@router.get("/me/data-scope")
+def get_my_data_scope(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    GET /api/v1/users/me/data-scope
+    Returns the trusted organisational + department scope for the current user.
+    The frontend uses this to lock filter dropdowns (e.g. region is read-only
+    for a Regional Manager). This value comes from the DB — not from the frontend.
+    """
+    from app.security.identity_resolver import _get_dept_scope
+    return {
+        "access_level": current_user.access_level,
+        "region_id": current_user.region_id,
+        "region_name": current_user.region.name if current_user.region else None,
+        "district_id": current_user.district_id,
+        "district_name": current_user.district.name if current_user.district else None,
+        "branch_id": current_user.branch_id,
+        "branch_name": current_user.branch.name if current_user.branch else None,
+        "department_scope": _get_dept_scope(current_user.id, db),
+        "is_head_office": current_user.access_level == "HEAD_OFFICE",
+    }
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class UserCreate(BaseModel):

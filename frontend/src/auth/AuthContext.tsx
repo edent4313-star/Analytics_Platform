@@ -1,23 +1,23 @@
 /**
- * Authentication context.
- * - Stores access + refresh tokens in localStorage
- * - Restores session on mount by calling /auth/me with stored token
- * - Provides login / logout / hasPermission / hasRole helpers
- * - Token refresh is handled automatically by the Axios interceptor in client.ts
+ * AuthProvider — Spec 02 extended.
+ * Provides full identity (position, department, dataScope) to the React tree.
+ * All security decisions are made by the backend. This context is UI only.
  */
 import React, { createContext, useCallback, useEffect, useState } from 'react';
 import apiClient from '@api/client';
-import { authApi } from '@api/auth.api';
+import authApi, { type AuthenticatedIdentity, type DataScopeResponse } from '@api/authApi';
 import { APP_CONFIG } from '@config/app.config';
-import type { CurrentUser, LoginRequest } from '@/types/auth.types';
 
 export interface AuthContextValue {
-  user: CurrentUser | null;
+  user: AuthenticatedIdentity | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: LoginRequest) => Promise<void>;
+  permissions: string[];
+  dataScope: DataScopeResponse | null;
+  login: (employeeId: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  /** UI hint only — backend is authoritative */
   hasPermission: (code: string) => boolean;
   hasRole: (roles: string | string[]) => boolean;
 }
@@ -25,65 +25,50 @@ export interface AuthContextValue {
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [user, setUser] = useState<AuthenticatedIdentity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [dataScope, setDataScope] = useState<DataScopeResponse | null>(null);
 
-  /** On mount: if a token exists in storage, fetch the user profile */
+  async function _loadFullIdentity() {
+    const [me, permsData, scope] = await Promise.all([
+      authApi.getCurrentUser(),
+      authApi.getPermissions(),
+      authApi.getDataScope(),
+    ]);
+    setUser(me);
+    setPermissions(permsData.permissions);
+    setDataScope(scope);
+  }
+
+  // Restore session on mount
   useEffect(() => {
     const token = localStorage.getItem(APP_CONFIG.tokenKey);
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-    authApi.me()
-      .then(u => {
-        setUser(u);
-        // Load real permissions after restoring session
-        apiClient.get<{ permissions: string[] }>('/auth/me/permissions')
-          .then(r => setPermissions(r.data.permissions))
-          .catch(() => {});
-      })
+    if (!token) { setIsLoading(false); return; }
+    _loadFullIdentity()
       .catch(() => {
-        // Token invalid or expired — clear storage, user must log in again
         localStorage.removeItem(APP_CONFIG.tokenKey);
         localStorage.removeItem(APP_CONFIG.refreshTokenKey);
       })
       .finally(() => setIsLoading(false));
   }, []);
 
-  const _loadPermissions = async () => {
-    try {
-      const { data } = await apiClient.get<{ permissions: string[] }>('/auth/me/permissions');
-      setPermissions(data.permissions);
-    } catch { /* ignore */ }
-  };
-
-  const login = useCallback(async (credentials: LoginRequest) => {
-    const tokens = await authApi.login(credentials);
+  const login = useCallback(async (employeeId: string, password: string) => {
+    const tokens = await authApi.login(employeeId, password);
     localStorage.setItem(APP_CONFIG.tokenKey, tokens.access_token);
     localStorage.setItem(APP_CONFIG.refreshTokenKey, tokens.refresh_token);
-    const currentUser = await authApi.me();
-    setUser(currentUser);
-    await _loadPermissions();
+    await _loadFullIdentity();
   }, []);
 
   const logout = useCallback(async () => {
-    try { await authApi.logout(); } catch { /* proceed even if server call fails */ }
+    try { await authApi.logout(); } catch { /* proceed */ }
     localStorage.removeItem(APP_CONFIG.tokenKey);
     localStorage.removeItem(APP_CONFIG.refreshTokenKey);
-    setUser(null);
-    setPermissions([]);
+    setUser(null); setPermissions([]); setDataScope(null);
   }, []);
 
-  /** Reload user profile (call after profile updates) */
   const refreshUser = useCallback(async () => {
-    try {
-      const updated = await authApi.me();
-      setUser(updated);
-    } catch {
-      // If refresh fails the Axios interceptor already handles redirect to login
-    }
+    try { await _loadFullIdentity(); } catch { /* ignore */ }
   }, []);
 
   const hasPermission = useCallback((code: string): boolean => {
@@ -100,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, isAuthenticated: !!user, isLoading,
+      permissions, dataScope,
       login, logout, refreshUser, hasPermission, hasRole,
     }}>
       {children}

@@ -6,6 +6,7 @@ import { AppLayout } from '@/layouts/AppLayout';
 // Auth
 import { LoginPage } from '@pages/auth/LoginPage';
 import { ChangePasswordPage } from '@pages/auth/ChangePasswordPage';
+import { OidcCallbackPage } from '@pages/auth/OidcCallbackPage';
 
 // Dashboard
 import { DashboardHome } from '@pages/dashboard/DashboardHome';
@@ -39,6 +40,7 @@ export function AppRoutes() {
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/change-password" element={<ChangePasswordPage />} />
+        <Route path="/auth/callback" element={<OidcCallbackPage />} />
       </Route>
 
       {/* ── Authenticated ──────────────────────────────────────────── */}

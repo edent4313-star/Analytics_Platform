@@ -58,6 +58,19 @@ class Settings(BaseSettings):
     login_rate_limit_attempts: int = 5
     login_rate_limit_window_seconds: int = 300
 
+    # ── Authentication Provider ───────────────────────────────────────────────
+    # "mock" = Mock AD (development/demo)
+    # "cbe_ad" = Real CBE AD via OIDC (production)
+    auth_provider: str = "mock"
+
+    # ── CBE OIDC (required when auth_provider=cbe_ad) ────────────────────────
+    oidc_issuer_url: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_redirect_uri: str = ""
+    oidc_scopes: str = "openid profile email"
+    oidc_username_claim: str = "preferred_username"  # AD sAMAccountName claim
+
 
 @lru_cache
 def get_settings() -> Settings:

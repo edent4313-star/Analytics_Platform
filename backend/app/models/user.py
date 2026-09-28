@@ -47,6 +47,11 @@ class User(Base):
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Spec 02 — AD identity fields
+    employee_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, unique=True, index=True)
+    ad_provider: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="mock")
+    last_ad_sync: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Audit fields
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
