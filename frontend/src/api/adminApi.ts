@@ -7,6 +7,14 @@ import apiClient from './client';
 const BASE = '/admin';
 
 export const adminApi = {
+  // AD user lookup (for auto-populating Full Name from email)
+  lookupADUser: (email: string) =>
+    apiClient.get(`${BASE}/ad/lookup`, { params: { email } }).then(r => r.data as {
+      found: boolean; email: string;
+      employee_id?: string; full_name?: string;
+      department?: string; position?: string;
+    }),
+
   // Users
   listUsers: (params?: Record<string, unknown>) => apiClient.get(`${BASE}/users`, { params }).then(r => r.data),
   getUser: (id: number) => apiClient.get(`${BASE}/users/${id}`).then(r => r.data),

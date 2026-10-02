@@ -51,7 +51,7 @@ export function DashboardHome() {
         />
       ) : (
         <Grid container spacing={2}>
-          {dashboards.map((dashboard) => (
+          {dashboards.map((dashboard: { id: number; code: string; name: string; description?: string }) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={dashboard.id}>
               <Card
                 elevation={1}

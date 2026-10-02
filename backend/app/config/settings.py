@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
 
     # ── Application ──────────────────────────────────────────────────────────
-    app_name: str = "Enterprise Analytics Platform"
+    app_name: str = "CBE Enterprise Dashboard"
     app_env: str = "development"  # development | production
     app_version: str = "1.0.0"
     debug: bool = False

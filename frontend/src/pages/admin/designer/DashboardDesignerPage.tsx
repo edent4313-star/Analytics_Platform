@@ -258,15 +258,8 @@ export function DashboardDesignerPage() {
                   <FormControl size="small" fullWidth>
                     <InputLabel>Aggregation</InputLabel>
                     <Select value={selectedWidget.config_json?.aggregation ?? 'COUNT'} label="Aggregation"
-                      onChange={e => updateWidget(selectedWidget.tempId, { config_json: { ...selectedWidget.config_json, aggregation: e.target.value } })}>
+                      onChange={e => updateWidget(selectedWidget.tempId, { config_json: { ...selectedWidget.config_json, aggregation: e.target.value as 'COUNT'|'COUNT_DISTINCT'|'SUM'|'AVG'|'MIN'|'MAX' } })}>
                       {['COUNT','COUNT_DISTINCT','SUM','AVG','MIN','MAX'].map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
-                    </Select>
-                  </FormControl>
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Format</InputLabel>
-                    <Select value={selectedWidget.config_json?.number_format ?? 'number'} label="Format"
-                      onChange={e => updateWidget(selectedWidget.tempId, { config_json: { ...selectedWidget.config_json, number_format: e.target.value } })}>
-                      {['number','currency','percent'].map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
                     </Select>
                   </FormControl>
                 </>
@@ -282,7 +275,7 @@ export function DashboardDesignerPage() {
                   <FormControl size="small" fullWidth>
                     <InputLabel>Aggregation</InputLabel>
                     <Select value={selectedWidget.config_json?.aggregation ?? 'COUNT'} label="Aggregation"
-                      onChange={e => updateWidget(selectedWidget.tempId, { config_json: { ...selectedWidget.config_json, aggregation: e.target.value } })}>
+                      onChange={e => updateWidget(selectedWidget.tempId, { config_json: { ...selectedWidget.config_json, aggregation: e.target.value as 'COUNT'|'COUNT_DISTINCT'|'SUM'|'AVG'|'MIN'|'MAX' } })}>
                       {['COUNT','COUNT_DISTINCT','SUM','AVG','MIN','MAX'].map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
                     </Select>
                   </FormControl>

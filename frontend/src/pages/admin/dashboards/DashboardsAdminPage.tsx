@@ -101,13 +101,13 @@ export function DashboardsAdminPage() {
             <Typography variant="subtitle2" mb={1}>Current Access</Typography>
             {(dashPerms as Record<string,unknown>[]).length===0&&
               <Typography variant="body2" color="text.secondary" mb={2}>No roles have access yet.</Typography>}
-            {(dashPerms as Record<string,unknown>[]).map((dp:Record<string,unknown>)=>(
-              <Box key={dp.id as number} display="flex" alignItems="center" gap={1} mb={0.5}>
-                <Chip label={dp.role_name as string} size="small" color="primary"/>
-                {dp.can_view&&<Chip label="VIEW" size="small" variant="outlined" color="success"/>}
-                {dp.can_export&&<Chip label="EXPORT" size="small" variant="outlined" color="info"/>}
+            {(dashPerms as Array<{id:number;role_id:number;role_name?:string;can_view:boolean;can_export:boolean}>).map((dp) => (
+              <Box key={dp.id} display="flex" alignItems="center" gap={1} mb={0.5}>
+                <Chip label={dp.role_name ?? `Role ${dp.role_id}`} size="small" color="primary"/>
+                {dp.can_view && <Chip label="VIEW" size="small" variant="outlined" color="success"/>}
+                {dp.can_export && <Chip label="EXPORT" size="small" variant="outlined" color="info"/>}
                 <Box flexGrow={1}/>
-                <Button size="small" color="error" onClick={()=>removePerm.mutate(dp.id as number)}>Remove</Button>
+                <Button size="small" color="error" onClick={()=>removePerm.mutate(dp.id)}>Remove</Button>
               </Box>
             ))}
             <Box mt={2} p={2} bgcolor="grey.50" borderRadius={1}>

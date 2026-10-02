@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Box, Button, FormControl, InputLabel, MenuItem,
@@ -7,13 +6,20 @@ import {
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { organizationApi } from '@api/organization.api';
 import type { DashboardFilter, ActiveFilters } from '@/types/dashboard.types';
-import type { CurrentUser } from '@/types/auth.types';
+
+// Minimal user scope — works with both CurrentUser and AuthenticatedIdentity
+interface UserScope {
+  access_level: string;
+  region_id: number | null;
+  district_id: number | null;
+  branch_id: number | null;
+}
 
 interface Props {
   filterDefs: DashboardFilter[];
   filters: ActiveFilters;
   onFiltersChange: (f: ActiveFilters) => void;
-  user: CurrentUser;
+  user: UserScope;
 }
 
 export function GlobalFilterBar({ filterDefs, filters, onFiltersChange, user }: Props) {
@@ -40,7 +46,6 @@ export function GlobalFilterBar({ filterDefs, filters, onFiltersChange, user }: 
 
   function set(key: string, val: unknown) {
     const next = { ...filters, [key]: val || null };
-    // Clear dependent filters
     if (key === 'region_id') { next.district_id = null; next.branch_id = null; }
     if (key === 'district_id') { next.branch_id = null; }
     onFiltersChange(next);
@@ -51,7 +56,6 @@ export function GlobalFilterBar({ filterDefs, filters, onFiltersChange, user }: 
   const hasBranchFilter = global.some(f => f.filter_type === 'BRANCH');
   const hasDateFilter = global.some(f => f.filter_type === 'DATE_RANGE');
 
-  // Lock org filters for scoped users
   const regionLocked = user.access_level !== 'HEAD_OFFICE';
   const districtLocked = ['DISTRICT', 'BRANCH'].includes(user.access_level);
   const branchLocked = user.access_level === 'BRANCH';
@@ -100,10 +104,9 @@ export function GlobalFilterBar({ filterDefs, filters, onFiltersChange, user }: 
               value={filters.date_to ?? ''} onChange={e => set('date_to', e.target.value)} />
           </>
         )}
-        {/* Category and custom filters */}
         {global.filter(f => f.filter_type === 'CATEGORY' || f.filter_type === 'STATUS').map(f => (
           <TextField key={f.id} size="small" label={f.display_name}
-            value={filters[f.field_name ?? ''] ?? ''}
+            value={(filters[f.field_name ?? ''] as string) ?? ''}
             onChange={e => set(f.field_name ?? '', e.target.value)}
             sx={{ minWidth: 140 }} />
         ))}

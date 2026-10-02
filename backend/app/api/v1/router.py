@@ -4,17 +4,9 @@ All sub-routers are registered here and included in main.py.
 """
 from fastapi import APIRouter
 from app.api.v1 import (
-    auth,
-    users,
-    organization,
-    roles,
-    permissions,
-    dashboards,
-    dashboard_data,
-    data_sources,
-    datasets,
-    audit,
-    admin,
+    auth, users, organization, roles, permissions,
+    dashboards, dashboard_data, data_sources, datasets,
+    audit, admin, bulk_import,
 )
 
 api_router = APIRouter()
@@ -30,3 +22,4 @@ api_router.include_router(data_sources.router, prefix="/data-sources", tags=["Da
 api_router.include_router(datasets.router, prefix="/datasets", tags=["Datasets"])
 api_router.include_router(audit.router, prefix="/audit", tags=["Audit"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Administration"])
+api_router.include_router(bulk_import.router, prefix="/import", tags=["Bulk Import"])

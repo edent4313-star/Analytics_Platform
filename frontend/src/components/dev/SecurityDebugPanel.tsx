@@ -13,6 +13,7 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import CloseIcon from '@mui/icons-material/Close';
 import { useAuth } from '@auth/useAuth';
 
+/// <reference types="vite/client" />
 const IS_DEV = import.meta.env.VITE_APP_ENV !== 'production';
 
 export function SecurityDebugPanel() {

@@ -53,16 +53,23 @@ const adminNavItems: NavItem[] = [
     label: 'Administration',
     icon: <AdminPanelSettingsIcon />,
     children: [
-      { label: 'Users', path: '/admin/users', icon: <PeopleIcon />, permission: 'user.view' },
-      { label: 'Roles', path: '/admin/roles', icon: <SecurityIcon />, permission: 'role.view' },
-      { label: 'Permissions', path: '/admin/permissions', icon: <SecurityIcon />, permission: 'permission.view' },
-      { label: 'Organization', path: '/admin/organization', icon: <AccountTreeIcon /> },
-      { label: 'Data Sources', path: '/admin/data-sources', icon: <StorageIcon />, permission: 'datasource.view' },
-      { label: 'Datasets', path: '/admin/datasets', icon: <TableChartIcon />, permission: 'dataset.view' },
-      { label: 'Dashboard Designer', path: '/admin/designer', icon: <DesignServicesIcon />, permission: 'dashboard.create' },
-      { label: 'All Dashboards', path: '/admin/dashboards', icon: <BarChartIcon />, permission: 'dashboard.view' },
-      { label: 'Approvals', path: '/admin/approvals', icon: <CheckCircleOutlineIcon />, permission: 'dashboard.publish' },
-      { label: 'Audit Logs', path: '/admin/audit', icon: <HistoryIcon />, permission: 'audit.view' },
+      // ── Visible now ─────────────────────────────────────────────────────
+      { label: 'Users',       path: '/admin/users',       icon: <PeopleIcon />,      permission: 'user.view' },
+      { label: 'Departments', path: '/admin/departments', icon: <StorageIcon /> },
+      { label: 'Regions',     path: '/admin/regions',     icon: <AccountTreeIcon /> },
+      { label: 'Districts',   path: '/admin/districts',   icon: <AccountTreeIcon /> },
+      { label: 'Branches',    path: '/admin/branches',    icon: <AccountTreeIcon /> },
+      { label: 'Positions',   path: '/admin/positions',   icon: <PeopleIcon /> },
+      // ── Hidden for now (not deleted) ────────────────────────────────────
+      // { label: 'Roles',             path: '/admin/roles',       icon: <SecurityIcon />,          permission: 'role.view' },
+      // { label: 'Permissions',       path: '/admin/permissions', icon: <SecurityIcon />,          permission: 'permission.view' },
+      // { label: 'Organization Tree', path: '/admin/organization',icon: <AccountTreeIcon /> },
+      // { label: 'Data Sources',      path: '/admin/data-sources',icon: <StorageIcon />,           permission: 'datasource.view' },
+      // { label: 'Datasets',          path: '/admin/datasets',    icon: <TableChartIcon />,        permission: 'dataset.view' },
+      // { label: 'Dashboard Designer',path: '/admin/designer',    icon: <DesignServicesIcon />,    permission: 'dashboard.create' },
+      // { label: 'All Dashboards',    path: '/admin/dashboards',  icon: <BarChartIcon />,          permission: 'dashboard.view' },
+      // { label: 'Approvals',         path: '/admin/approvals',   icon: <CheckCircleOutlineIcon />,permission: 'dashboard.publish' },
+      // { label: 'Audit Logs',        path: '/admin/audit',       icon: <HistoryIcon />,           permission: 'audit.view' },
     ],
   },
 ];
@@ -165,7 +172,7 @@ export function Sidebar({ open }: SidebarProps) {
         <BarChartIcon color="primary" sx={{ mr: open ? 1.5 : 0 }} />
         {open && (
           <Typography variant="subtitle2" fontWeight={700} noWrap>
-            Analytics Platform
+            CBE Enterprise Dashboard
           </Typography>
         )}
       </Box>

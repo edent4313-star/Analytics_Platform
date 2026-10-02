@@ -216,7 +216,7 @@ def get_me(current_user=Depends(get_current_user), db: Session = Depends(get_db)
 @router.get("/me/permissions")
 def get_my_permissions(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Return all permission codes for the current user."""
-    if current_user.primary_role_name == "ADMIN":
+    if current_user.primary_role_name in ("ADMIN", "SYSTEM_ADMIN"):
         from app.models.permission import Permission
         codes = [p.code for p in db.query(Permission).filter(Permission.is_active == True).all()]
         return {"permissions": codes}
@@ -345,29 +345,46 @@ def ad_login(request: Request):
     if settings.auth_provider != "cbe_ad":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CBE AD is not active. Set AUTH_PROVIDER=cbe_ad in .env to enable. "
-                   "Use POST /auth/login with Employee ID + password for development.",
+            detail=(
+                "CBE AD is not active. Set AUTH_PROVIDER=cbe_ad in .env to enable. "
+                "Use POST /auth/login with Employee ID + password for development."
+            ),
         )
     provider = get_auth_provider(settings)
     auth_url, state = provider.get_authorization_url()
-    # Store state in a short-lived cookie for CSRF validation
     response = RedirectResponse(url=auth_url)
-    response.set_cookie("oidc_state", state, max_age=300, httponly=True, samesite="lax")
+    # Store state in HttpOnly cookie for CSRF validation in callback
+    response.set_cookie(
+        "oidc_state", state,
+        max_age=300,
+        httponly=True,
+        samesite="lax",
+        secure=settings.app_env == "production",
+    )
     return response
 
 
 @router.get("/ad/callback")
-def ad_callback(code: str = Query(...), state: str = Query(""),
-                request: Request = None, db: Session = Depends(get_db)):
+def ad_callback(
+    code: str = Query(...),
+    state: str = Query(""),
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
     """
-    CBE OIDC callback. Exchanges authorization code for tokens.
-    Resolves identity, issues application JWT, redirects to frontend.
+    CBE OIDC callback. Validates state, exchanges code for tokens,
+    resolves identity, issues application JWT.
+    Redirects to frontend using URL fragment (tokens NOT in query string
+    to prevent browser history / server log exposure).
     """
     if settings.auth_provider != "cbe_ad":
         raise HTTPException(503, "CBE AD is not configured")
 
+    # Retrieve expected state from cookie for CSRF validation
+    expected_state = request.cookies.get("oidc_state", "") if request else ""
+
     provider = get_auth_provider(settings)
-    identity = provider.exchange_code(code, db)
+    identity = provider.exchange_code(code, expected_state, state, db)
 
     access_token = create_access_token(
         user_id=identity.user_id, username=identity.username,
@@ -384,13 +401,12 @@ def ad_callback(code: str = Query(...), state: str = Query(""),
                  datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes))
     db.commit()
 
-    # Redirect to frontend with tokens in query params
-    # Frontend reads them, stores in localStorage, removes from URL
+    # Redirect using fragment (#) — tokens never appear in server logs or browser history
     frontend_url = settings.frontend_url.rstrip("/")
-    redirect_url = (
-        f"{frontend_url}/auth/callback"
-        f"?access_token={access_token}"
-        f"&refresh_token={refresh_token_val}"
-        f"&provider=cbe_ad"
-    )
-    return RedirectResponse(url=redirect_url)
+    fragment = f"access_token={access_token}&refresh_token={refresh_token_val}&provider=cbe_ad"
+    redirect_url = f"{frontend_url}/auth/callback#{fragment}"
+
+    response = RedirectResponse(url=redirect_url)
+    # Clear OIDC state cookie
+    response.delete_cookie("oidc_state")
+    return response

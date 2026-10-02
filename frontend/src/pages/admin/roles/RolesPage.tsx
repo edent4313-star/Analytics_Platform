@@ -29,16 +29,16 @@ export function RolesPage() {
   const {data:allPerms=[]} = useQuery({queryKey:['admin-permissions'],queryFn:adminApi.listPermissions});
   const {data:rolePerms=[]} = useQuery({
     queryKey:['role-perms',selected?.id],
-    queryFn:()=>adminApi.setRolePermissions ? null : null, // loaded on demand
+    queryFn: (): null => null,
     enabled:false,
   });
 
-  const permsByCategory = (allPerms as Record<string,unknown>[]).reduce((acc,p)=>{
-    const cat = p.category as string;
-    if(!acc[cat]) acc[cat]=[];
-    (acc[cat] as typeof p[]).push(p);
+  const permsByCategory = (allPerms as Array<{id:number;name:string;code:string;category:string}>).reduce((acc, p) => {
+    const cat = p.category;
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(p);
     return acc;
-  },{} as Record<string,Record<string,unknown>[]>);
+  }, {} as Record<string, Array<{id:number;name:string;code:string;category:string}>>);
 
   async function saveRole() {
     setSaving(true); setError(null);
@@ -105,7 +105,7 @@ export function RolesPage() {
                       <ListItemText
                         primary={<Box display="flex" alignItems="center" gap={1}>
                           {role.display_name as string}
-                          {role.is_system&&<Chip label="System" size="small"/>}
+                      {!!role.is_system&&<Chip label="System" size="small"/>}
                         </Box>}
                         secondary={role.name as string}
                       />
@@ -176,7 +176,7 @@ export function RolesPage() {
               <Box key={cat} mb={2}>
                 <Typography variant="subtitle2" color="text.secondary" mb={1}>{cat}</Typography>
                 <Grid container>
-                  {perms.map(p=>(
+                  {(perms as Array<{id:number;name:string;code:string}>).map(p=>(
                     <Grid item xs={6} key={p.id as number}>
                       <FormControlLabel
                         control={<Checkbox size="small" checked={selectedPerms.includes(p.id as number)}

@@ -27,13 +27,14 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 const DEMO_USERS = [
-  { id: 'CBE001', name: 'Abebe Girma',   role: 'Admin',              scope: 'Head Office' },
-  { id: 'CBE002', name: 'Hiwot Tadesse', role: 'Head Office User',   scope: 'Head Office' },
-  { id: 'CBE003', name: 'Bekele Alemu',  role: 'Regional Manager',   scope: 'Addis Ababa Region' },
-  { id: 'CBE004', name: 'Tigist Haile',  role: 'District Manager',   scope: 'Bole District' },
-  { id: 'CBE005', name: 'Dawit Kebede',  role: 'Branch Manager',     scope: 'Bole Main Branch' },
-  { id: 'CBE006', name: 'Sara Mulugeta', role: 'Analyst',            scope: 'Head Office' },
-  { id: 'CBE007', name: 'Yonas Tesfaye', role: 'Viewer',             scope: 'Bole Main Branch' },
+  { id: 'CBE_ADMIN', name: 'System Admin Test',   role: 'System Admin',   scope: 'Head Office — full access', pw: 'SysAdmin@1234' },
+  { id: 'CBE001',    name: 'Abebe Girma',          role: 'Admin',          scope: 'Head Office', pw: 'Demo@1234' },
+  { id: 'CBE002',    name: 'Hiwot Tadesse',        role: 'Viewer',         scope: 'Head Office', pw: 'Demo@1234' },
+  { id: 'CBE003',    name: 'Bekele Alemu',         role: 'Designer',       scope: 'Addis Ababa Region', pw: 'Demo@1234' },
+  { id: 'CBE004',    name: 'Tigist Haile',         role: 'District Mgr',   scope: 'Bole District', pw: 'Demo@1234' },
+  { id: 'CBE005',    name: 'Dawit Kebede',         role: 'Branch Mgr',     scope: 'Bole Main Branch', pw: 'Demo@1234' },
+  { id: 'CBE006',    name: 'Sara Mulugeta',        role: 'Analyst',        scope: 'Head Office', pw: 'Demo@1234' },
+  { id: 'CBE007',    name: 'Yonas Tesfaye',        role: 'Viewer',         scope: 'Bole Main Branch', pw: 'Demo@1234' },
 ];
 
 export function LoginPage() {
@@ -79,7 +80,7 @@ export function LoginPage() {
             Commercial Bank of Ethiopia
           </Typography>
           <Typography variant="body2" sx={{ opacity: 0.85, mt: 0.25 }}>
-            Enterprise Analytics Platform
+            CBE Enterprise Dashboard
           </Typography>
         </Box>
 
@@ -152,7 +153,7 @@ export function LoginPage() {
           <Collapse in={showDemo}>
             <Alert severity="info" sx={{ mb: 1.5 }}>
               <Typography variant="caption">
-                All demo passwords: <strong>Demo@1234</strong> — Click a row to fill the form
+                Click a row to fill the form with that user's credentials.
               </Typography>
             </Alert>
             <Table size="small">
@@ -162,15 +163,17 @@ export function LoginPage() {
                   <TableCell sx={{ py: 0.5, fontSize: 11, fontWeight: 700 }}>Name</TableCell>
                   <TableCell sx={{ py: 0.5, fontSize: 11, fontWeight: 700 }}>Role</TableCell>
                   <TableCell sx={{ py: 0.5, fontSize: 11, fontWeight: 700 }}>Scope</TableCell>
+                  <TableCell sx={{ py: 0.5, fontSize: 11, fontWeight: 700 }}>Password</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {DEMO_USERS.map(u => (
-                  <TableRow key={u.id} hover sx={{ cursor: 'pointer' }} onClick={() => fillDemo(u.id)}>
+                  <TableRow key={u.id} hover sx={{ cursor: 'pointer' }} onClick={() => { setValue('employee_id', u.id); setValue('password', u.pw); }}>
                     <TableCell sx={{ py: 0.5 }}><Typography variant="caption" fontFamily="monospace" fontWeight={600}>{u.id}</Typography></TableCell>
                     <TableCell sx={{ py: 0.5 }}><Typography variant="caption">{u.name}</Typography></TableCell>
                     <TableCell sx={{ py: 0.5 }}><Typography variant="caption">{u.role}</Typography></TableCell>
                     <TableCell sx={{ py: 0.5 }}><Typography variant="caption" color="text.secondary">{u.scope}</Typography></TableCell>
+                    <TableCell sx={{ py: 0.5 }}><Typography variant="caption" fontFamily="monospace" color="text.secondary">{u.pw}</Typography></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -181,6 +184,24 @@ export function LoginPage() {
             This system is for authorized CBE personnel only.
             <br />All access is monitored and logged.
           </Typography>
+
+          {/* Production CBE AD button — only shown when VITE_AUTH_PROVIDER=cbe_ad */}
+          {import.meta.env.VITE_AUTH_PROVIDER === 'cbe_ad' && (
+            <Box mt={2}>
+              <Divider sx={{ my: 2 }}>
+                <Typography variant="caption" color="text.secondary">OR</Typography>
+              </Divider>
+              <Button
+                variant="outlined"
+                fullWidth
+                size="large"
+                onClick={() => { window.location.href = '/api/v1/auth/ad/login'; }}
+                sx={{ borderColor: '#1a3a5c', color: '#1a3a5c', '&:hover': { bgcolor: 'rgba(26,58,92,0.05)' } }}
+              >
+                Sign in with CBE Active Directory
+              </Button>
+            </Box>
+          )}
         </Box>
       </Paper>
     </Box>

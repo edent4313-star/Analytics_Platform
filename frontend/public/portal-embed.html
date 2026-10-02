@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<!--
+  CBE Intranet Portal Tile / Embed Page
+  ======================================
+  This file is used to add the CBE Enterprise Dashboard as a tile or link
+  on the CBE intranet portal.
+
+  HOW TO USE:
+  Option A — Simple hyperlink (easiest):
+    Add this link anywhere on the CBE intranet:
+    <a href="http://analytics.cbe.com.et/">CBE Enterprise Dashboard</a>
+
+  Option B — Embed this page as an iframe tile on the intranet:
+    <iframe src="http://analytics.cbe.com.et/portal-embed.html"
+            width="320" height="200" frameborder="0"></iframe>
+
+  Option C — Add the full tile HTML below directly to your intranet page.
+
+  CONFIGURATION:
+  Change PLATFORM_URL below to match your actual deployed server address.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CBE Enterprise Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .tile {
+      background: linear-gradient(135deg, #1a3a5c 0%, #0f2540 100%);
+      border-radius: 12px;
+      padding: 28px 24px;
+      width: 300px;
+      color: white;
+      text-decoration: none;
+      display: block;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+
+    .tile:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    }
+
+    .tile-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .tile-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .tile-icon svg {
+      width: 28px;
+      height: 28px;
+      fill: white;
+    }
+
+    .tile-title {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .tile-subtitle {
+      font-size: 12px;
+      opacity: 0.75;
+      margin-top: 2px;
+    }
+
+    .tile-description {
+      font-size: 13px;
+      opacity: 0.85;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .tile-button {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      color: white;
+      padding: 9px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+      transition: background 0.15s;
+    }
+
+    .tile-button:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .tile-footer {
+      margin-top: 14px;
+      font-size: 11px;
+      opacity: 0.55;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<script>
+  // ← CHANGE THIS to your actual server address before deploying
+  var PLATFORM_URL = "http://analytics.cbe.com.et/";
+</script>
+
+<a class="tile" id="platform-tile" href="#" onclick="openPlatform(event)">
+  <div class="tile-header">
+    <div class="tile-icon">
+      <!-- Bar chart icon -->
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="10" width="4" height="12" rx="1"/>
+        <rect x="9" y="6" width="4" height="16" rx="1"/>
+        <rect x="16" y="2" width="4" height="20" rx="1"/>
+      </svg>
+    </div>
+    <div>
+      <div class="tile-title">CBE Enterprise Dashboard</div>
+      <div class="tile-subtitle">Commercial Bank of Ethiopia</div>
+    </div>
+  </div>
+
+  <div class="tile-description">
+    Analytics and reporting platform for CBE staff.
+    Access FCY leads, branch performance, customer analytics, and more.
+  </div>
+
+  <div class="tile-button">Open Dashboard Portal →</div>
+
+  <div class="tile-footer">Internal use only · CBE Analytics Team</div>
+</a>
+
+<script>
+  // Update the href to the real URL
+  document.getElementById('platform-tile').href = PLATFORM_URL;
+
+  function openPlatform(e) {
+    e.preventDefault();
+    window.open(PLATFORM_URL, '_blank');
+  }
+</script>
+
+</body>
+</html>

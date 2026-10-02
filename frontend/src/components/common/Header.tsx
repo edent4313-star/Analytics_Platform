@@ -66,7 +66,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         </IconButton>
 
         <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
-          Enterprise Analytics Platform
+          CBE Enterprise Dashboard
         </Typography>
 
         {/* User avatar + dropdown */}

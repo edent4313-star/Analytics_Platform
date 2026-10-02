@@ -143,6 +143,48 @@ def admin_list_users(
     users = q.order_by(User.full_name).offset((page-1)*page_size).limit(page_size).all()
     return {"items": [_user_dict(u) for u in users], "total": total, "page": page, "page_size": page_size}
 
+@router.get("/ad/lookup")
+def ad_user_lookup(
+    email: str,
+    current_user=Depends(require_permission("user.create")),
+    db: Session = Depends(get_db),
+):
+    """
+    Look up a user in the AD/mock provider by email.
+    Returns name, employee_id and department if found.
+    Used by the Admin User form to auto-populate Full Name from email.
+    Does NOT expose passwords or tokens.
+    """
+    from sqlalchemy import text
+    # Try mock_ad_users first (development)
+    row = db.execute(
+        text("SELECT employee_id, full_name, email, department, position_title FROM mock_ad_users WHERE LOWER(email) = LOWER(:email) LIMIT 1"),
+        {"email": email}
+    ).first()
+    if row:
+        return {
+            "found": True,
+            "employee_id": row[0],
+            "full_name": row[1],
+            "email": row[2],
+            "department": row[3],
+            "position": row[4],
+        }
+    # Try existing users table as fallback
+    from app.models.user import User
+    user = db.query(User).filter(User.email.ilike(email)).first()
+    if user:
+        return {
+            "found": True,
+            "employee_id": user.employee_id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "department": None,
+            "position": None,
+        }
+    return {"found": False, "email": email}
+
+
 @router.post("/users", status_code=201)
 def admin_create_user(
     body: UserCreate, request: Request,

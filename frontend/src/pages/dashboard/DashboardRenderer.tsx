@@ -1,21 +1,20 @@
 /**
  * Generic Dashboard Renderer — works for ANY dashboard.
- * No per-project React pages needed. Layout driven by backend config.
+ * No per-project React pages needed.
  */
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Alert, Box, Breadcrumbs, Button, CircularProgress,
+  Alert, Box, Breadcrumbs, CircularProgress,
   Grid, IconButton, Link, Tooltip, Typography,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { dashboardsApi } from '@api/dashboards.api';
 import { WidgetRenderer } from '@components/widgets/WidgetRenderer';
 import { GlobalFilterBar } from '@components/filters/GlobalFilterBar';
 import { useAuth } from '@auth/useAuth';
-import type { ActiveFilters } from '@/types/dashboard.types';
+import type { ActiveFilters, DashboardWidget } from '@/types/dashboard.types';
 import { formatDateTime } from '@utils/formatters';
 
 export function DashboardRenderer() {
@@ -42,10 +41,10 @@ export function DashboardRenderer() {
     return <Alert severity="error">Failed to load dashboard. Please try again.</Alert>;
   }
 
-  const widgets = config?.widgets ?? [];
+  const widgets: DashboardWidget[] = config?.widgets ?? [];
   const filterDefs = config?.filters ?? [];
 
-  // Pre-populate org filters from user scope for scoped users
+  // Build effective filters — pre-populate from user scope for scoped users
   function getEffectiveFilters(): ActiveFilters {
     const eff = { ...filters };
     if (user?.access_level === 'REGION' && user.region_id && !eff.region_id) eff.region_id = user.region_id;
@@ -56,13 +55,22 @@ export function DashboardRenderer() {
 
   const effectiveFilters = getEffectiveFilters();
 
+  // Minimal scope for GlobalFilterBar
+  const userScope = {
+    access_level: user?.access_level ?? 'HEAD_OFFICE',
+    region_id: user?.region_id ?? null,
+    district_id: user?.district_id ?? null,
+    branch_id: user?.branch_id ?? null,
+  };
+
   return (
     <Box>
       {/* Header */}
       <Box display="flex" alignItems="flex-start" justifyContent="space-between" mb={2}>
         <Box>
           <Breadcrumbs sx={{ mb: 0.5 }}>
-            <Link component="button" variant="caption" onClick={() => navigate('/dashboards')} underline="hover" color="inherit">
+            <Link component="button" variant="caption" onClick={() => navigate('/dashboards')}
+              underline="hover" color="inherit">
               Dashboards
             </Link>
             <Typography variant="caption" color="text.primary">{config?.name}</Typography>
@@ -87,25 +95,24 @@ export function DashboardRenderer() {
       </Box>
 
       {/* Filters */}
-      {filterDefs.length > 0 && user && (
+      {filterDefs.length > 0 && (
         <GlobalFilterBar
           filterDefs={filterDefs}
           filters={filters}
           onFiltersChange={setFilters}
-          user={user}
+          user={userScope}
         />
       )}
 
-      {/* No published version */}
       {widgets.length === 0 && (
         <Alert severity="info">This dashboard has no published widgets yet.</Alert>
       )}
 
-      {/* Widget grid — uses position_x/position_y for layout */}
+      {/* Widget grid */}
       <Grid container spacing={2}>
         {widgets
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map(widget => (
+          .sort((a: DashboardWidget, b: DashboardWidget) => a.sort_order - b.sort_order)
+          .map((widget: DashboardWidget) => (
             <Grid
               item
               key={widget.id}

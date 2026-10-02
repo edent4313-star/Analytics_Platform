@@ -48,8 +48,8 @@ def require_permission(permission_code: str) -> Callable:
         from app.models.role import UserRole, RolePermission
         from app.models.permission import Permission
 
-        # ADMIN bypasses all checks
-        if current_user.primary_role_name == "ADMIN":
+        # ADMIN and SYSTEM_ADMIN bypass all checks
+        if current_user.primary_role_name in ("ADMIN", "SYSTEM_ADMIN"):
             return current_user
 
         # Check via: user → user_roles → role_permissions → permissions

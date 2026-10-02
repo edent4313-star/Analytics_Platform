@@ -19,6 +19,7 @@ import { ProfilePage } from '@pages/profile/ProfilePage';
 import { AdminHome } from '@pages/admin/AdminHome';
 import { UserListPage } from '@pages/admin/users/UserListPage';
 import { UserFormPage } from '@pages/admin/users/UserFormPage';
+import { UserManagementPage } from '@pages/admin/users/UserManagementPage';
 import { RolesPage } from '@pages/admin/roles/RolesPage';
 import { PermissionsPage } from '@pages/admin/permissions/PermissionsPage';
 import { OrgPage } from '@pages/admin/organization/OrgPage';
@@ -28,6 +29,13 @@ import { DashboardDesignerPage } from '@pages/admin/designer/DashboardDesignerPa
 import { DashboardsAdminPage } from '@pages/admin/dashboards/DashboardsAdminPage';
 import { ApprovalsPage } from '@pages/admin/approvals/ApprovalsPage';
 import { AuditLogsPage } from '@pages/admin/audit/AuditLogsPage';
+
+// Admin — organization sub-pages
+import { RegionsPage } from '@pages/admin/organization/RegionsPage';
+import { DistrictsPage } from '@pages/admin/organization/DistrictsPage';
+import { BranchesPage } from '@pages/admin/organization/BranchesPage';
+import { DepartmentsPage } from '@pages/admin/departments/DepartmentsPage';
+import { PositionsPage } from '@pages/admin/positions/PositionsPage';
 
 // Errors
 import { NotFoundPage } from '@pages/errors/NotFoundPage';
@@ -53,12 +61,18 @@ export function AppRoutes() {
           <Route path="/profile" element={<ProfilePage />} />
 
           <Route path="/admin" element={<AdminHome />} />
-          <Route path="/admin/users" element={<UserListPage />} />
+          <Route path="/admin/users" element={<UserManagementPage />} />
+          <Route path="/admin/users/list" element={<UserListPage />} />
           <Route path="/admin/users/new" element={<UserFormPage />} />
           <Route path="/admin/users/:id" element={<UserFormPage />} />
           <Route path="/admin/roles" element={<RolesPage />} />
           <Route path="/admin/permissions" element={<PermissionsPage />} />
           <Route path="/admin/organization" element={<OrgPage />} />
+          <Route path="/admin/regions" element={<RegionsPage />} />
+          <Route path="/admin/districts" element={<DistrictsPage />} />
+          <Route path="/admin/branches" element={<BranchesPage />} />
+          <Route path="/admin/departments" element={<DepartmentsPage />} />
+          <Route path="/admin/positions" element={<PositionsPage />} />
           <Route path="/admin/data-sources" element={<DataSourcesPage />} />
           <Route path="/admin/datasets" element={<DatasetsPage />} />
           <Route path="/admin/designer" element={<DashboardDesignerPage />} />

@@ -5,7 +5,7 @@
  */
 
 export const APP_CONFIG = {
-  appName: 'Enterprise Analytics Platform',
+  appName: 'CBE Enterprise Dashboard',
   appVersion: '1.0.0',
 
   /** Base URL for all API calls. Proxied to FastAPI in dev via vite.config.ts */

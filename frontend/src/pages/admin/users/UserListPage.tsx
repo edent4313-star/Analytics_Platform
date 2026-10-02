@@ -103,7 +103,7 @@ export function UserListPage() {
                   <TableCell align="center">
                     <Tooltip title="Edit"><IconButton size="small" onClick={()=>navigate(`/admin/users/${u.id}`)}><EditIcon fontSize="small"/></IconButton></Tooltip>
                     <Tooltip title="Reset Password"><IconButton size="small" onClick={()=>setResetTarget({id:u.id as number,username:u.username as string})}><LockResetIcon fontSize="small"/></IconButton></Tooltip>
-                    {u.locked_until&&<Tooltip title="Unlock"><IconButton size="small" color="warning" onClick={()=>unlockMutation.mutate(u.id as number)}><LockOpenIcon fontSize="small"/></IconButton></Tooltip>}
+                    {!!u.locked_until&&<Tooltip title="Unlock"><IconButton size="small" color="warning" onClick={()=>unlockMutation.mutate(u.id as number)}><LockOpenIcon fontSize="small"/></IconButton></Tooltip>}
                     <Chip label={u.is_active?'Disable':'Enable'} size="small" variant="outlined"
                       color={u.is_active?'error':'success'} sx={{ml:0.5,cursor:'pointer'}}
                       onClick={()=>setConfirmToggle({id:u.id as number,username:u.username as string,active:!u.is_active})}/>

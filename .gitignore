@@ -70,3 +70,5 @@ ehthumbs.db
 nginx/ssl/*.crt
 nginx/ssl/*.key
 deployment/*.sh
+node_modules/
+frontend/node_modules/
