@@ -5,7 +5,7 @@ from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, Text, fun
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
-SOURCE_TYPES = ("POSTGRESQL", "ORACLE", "INTERNAL_API")
+SOURCE_TYPES = ("POSTGRESQL", "ORACLE", "INTERNAL_API", "EXCEL")
 
 
 class DataSource(Base):
@@ -23,6 +23,7 @@ class DataSource(Base):
     service_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     schema_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     api_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    file_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)  # For Excel file uploads
 
     # Sensitive — stored encrypted using Fernet symmetric encryption
     # Format: "encrypted:<base64-fernet-token>"

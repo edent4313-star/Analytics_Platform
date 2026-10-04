@@ -5,12 +5,15 @@ import {
   DialogContent, DialogTitle, FormControl, InputLabel, MenuItem,
   Paper, Select, Stack, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Tooltip, Typography, IconButton,
+  Tabs, Tab,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import WifiIcon from '@mui/icons-material/Wifi';
 import EditIcon from '@mui/icons-material/Edit';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import apiClient from '@api/client';
 import { LoadingState } from '@components/common/LoadingState';
+import { dataSourcesApi } from '../api/data-sources.api';
 
 function useDataSources() {
   return useQuery({ queryKey: ['datasources'], queryFn: () => apiClient.get('/data-sources').then(r => r.data) });
@@ -25,6 +28,10 @@ export function DataSourcesPage() {
   const [testResult, setTestResult] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [uploadDialog, setUploadDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
 
   const { data: sources = [], isLoading } = useDataSources();
 
@@ -57,13 +64,41 @@ export function DataSourcesPage() {
     finally { setTesting(false); }
   }
 
+  async function uploadExcel() {
+    if (!selectedFile) {
+      setUploadMessage('Please select a file first');
+      return;
+    }
+    setUploading(true);
+    setUploadMessage(null);
+    try {
+      const response = await dataSourcesApi.uploadExcel(selectedFile, selectedFile.name.replace('.xlsx', '').replace('.xls', ''));
+
+      setUploadMessage(`✓ Excel file uploaded successfully! Sheet names: ${response.sheet_names.join(', ')}`);
+      qc.invalidateQueries({ queryKey: ['datasources'] });
+      setTimeout(() => {
+        setUploadDialog(false);
+        setSelectedFile(null);
+        setUploadMessage(null);
+      }, 2000);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      setUploadMessage('✗ Upload failed: ' + (err?.response?.data?.detail ?? 'Unknown error'));
+    } finally {
+      setUploading(false);
+    }
+  }
+
   if (isLoading) return <LoadingState />;
 
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5" fontWeight={600}>Data Sources</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>Add Data Source</Button>
+        <Stack direction="row" spacing={2}>
+          <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => setUploadDialog(true)}>Upload Excel</Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>Add Data Source</Button>
+        </Stack>
       </Box>
       <Paper elevation={1}>
         <TableContainer>
@@ -103,7 +138,7 @@ export function DataSourcesPage() {
               <FormControl size="small" fullWidth>
                 <InputLabel>Type</InputLabel>
                 <Select value={form.source_type} label="Type" onChange={e => setForm(p => ({ ...p, source_type: e.target.value }))}>
-                  {['POSTGRESQL', 'ORACLE', 'INTERNAL_API'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                  {['POSTGRESQL', 'ORACLE', 'INTERNAL_API', 'EXCEL'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </Select>
               </FormControl>
               {form.source_type !== 'INTERNAL_API' ? (
@@ -133,6 +168,52 @@ export function DataSourcesPage() {
           </DialogActions>
         </Dialog>
       )}
+
+      {/* Excel Upload Dialog */}
+      <Dialog open={uploadDialog} onClose={() => setUploadDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Upload Excel File</DialogTitle>
+        <DialogContent>
+          {uploadMessage && <Alert severity={uploadMessage.startsWith('✓') ? 'success' : 'warning'} sx={{ mb: 2 }}>{uploadMessage}</Alert>}
+          <Stack spacing={2} mt={1}>
+            <Typography variant="body2" color="text.secondary">
+              Upload an Excel file (.xlsx, .xls) to create a new data source. The file will be processed and available for dataset creation.
+            </Typography>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<UploadFileIcon />}
+              fullWidth
+            >
+              Browse Excel File
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setSelectedFile(file);
+                }}
+              />
+            </Button>
+            {selectedFile && (
+              <Alert severity="info">
+                Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+              </Alert>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setUploadDialog(false)} color="inherit">Cancel</Button>
+          <Button
+            onClick={uploadExcel}
+            variant="contained"
+            disabled={!selectedFile || uploading}
+            startIcon={uploading ? <CircularProgress size={18} color="inherit" /> : <UploadFileIcon />}
+          >
+            {uploading ? 'Uploading...' : 'Upload'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

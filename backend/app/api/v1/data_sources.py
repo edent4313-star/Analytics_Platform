@@ -1,8 +1,11 @@
-"""Data Sources API — full CRUD with credential encryption."""
+"""Data Sources API — full CRUD with credential encryption and Excel file support."""
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import os
+import shutil
+from datetime import datetime
 
 from app.database.session import get_db
 from app.security.dependencies import require_permission
@@ -11,7 +14,7 @@ router = APIRouter()
 
 class DataSourceCreate(BaseModel):
     name: str
-    source_type: str  # POSTGRESQL | ORACLE | INTERNAL_API
+    source_type: str  # POSTGRESQL | ORACLE | INTERNAL_API | EXCEL
     description: Optional[str] = None
     host: Optional[str] = None
     port: Optional[int] = None
@@ -19,6 +22,7 @@ class DataSourceCreate(BaseModel):
     service_name: Optional[str] = None
     schema_name: Optional[str] = None
     api_url: Optional[str] = None
+    file_path: Optional[str] = None  # For Excel files
     username: Optional[str] = None  # will be encrypted
     password: Optional[str] = None  # will be encrypted
 
@@ -37,6 +41,7 @@ def _safe_dict(s) -> dict:
             "description": s.description, "host": s.host, "port": s.port,
             "database_name": s.database_name, "service_name": s.service_name,
             "schema_name": s.schema_name, "api_url": s.api_url,
+            "file_path": s.file_path,
             "is_active": s.is_active, "created_at": s.created_at,
             "username": "***" if s.username_enc else None}  # never return credentials
 
@@ -53,7 +58,8 @@ def create_source(body: DataSourceCreate, current_user=Depends(require_permissio
     s = DataSource(name=body.name, source_type=body.source_type, description=body.description,
                    host=body.host, port=body.port, database_name=body.database_name,
                    service_name=body.service_name, schema_name=body.schema_name,
-                   api_url=body.api_url, username_enc=_encrypt(body.username),
+                   api_url=body.api_url, file_path=body.file_path,
+                   username_enc=_encrypt(body.username),
                    password_enc=_encrypt(body.password), is_active=True, created_by=current_user.id)
     db.add(s); db.commit(); db.refresh(s)
     return _safe_dict(s)
@@ -118,3 +124,65 @@ def get_fields(source_id: int, schema: str = "public", object_name: str = "", cu
     config = _decrypt_credentials(s)
     connector = get_connector(s.source_type, config)
     return {"fields": connector.get_field_metadata(schema, object_name)}
+
+
+@router.post("/upload-excel", status_code=201)
+def upload_excel_file(
+    file: UploadFile = File(...),
+    name: str = None,
+    current_user=Depends(require_permission("datasource.create")),
+    db: Session = Depends(get_db)
+):
+    """Upload an Excel file and create a data source for it."""
+    from app.models.data_source import DataSource
+    import pandas as pd
+
+    # Validate file type
+    if not file.filename.lower().endswith(('.xlsx', '.xls')):
+        raise HTTPException(400, "Only Excel files (.xlsx, .xls) are allowed")
+
+    # Create upload directory if it doesn't exist
+    upload_dir = "uploads/excel"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Generate unique filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{file.filename}"
+    file_path = os.path.join(upload_dir, filename)
+
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Read Excel to get sheet names
+    try:
+        excel_file = pd.ExcelFile(file_path)
+        sheet_names = excel_file.sheet_names
+    except Exception as e:
+        os.remove(file_path)
+        raise HTTPException(400, f"Invalid Excel file: {str(e)}")
+
+    # Create data source
+    source_name = name or file.filename.replace('.xlsx', '').replace('.xls', '')
+    if db.query(DataSource).filter_by(name=source_name).first():
+        os.remove(file_path)
+        raise HTTPException(400, "Data source name already exists")
+
+    s = DataSource(
+        name=source_name,
+        source_type="EXCEL",
+        description=f"Excel file uploaded from {file.filename}",
+        file_path=file_path,
+        is_active=True,
+        created_by=current_user.id
+    )
+    db.add(s); db.commit(); db.refresh(s)
+
+    return {
+        "id": s.id,
+        "name": s.name,
+        "source_type": s.source_type,
+        "file_path": s.file_path,
+        "sheet_names": sheet_names,
+        "message": "Excel file uploaded successfully"
+    }

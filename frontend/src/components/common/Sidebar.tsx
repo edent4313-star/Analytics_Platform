@@ -64,9 +64,9 @@ const adminNavItems: NavItem[] = [
       // { label: 'Roles',             path: '/admin/roles',       icon: <SecurityIcon />,          permission: 'role.view' },
       // { label: 'Permissions',       path: '/admin/permissions', icon: <SecurityIcon />,          permission: 'permission.view' },
       // { label: 'Organization Tree', path: '/admin/organization',icon: <AccountTreeIcon /> },
-      // { label: 'Data Sources',      path: '/admin/data-sources',icon: <StorageIcon />,           permission: 'datasource.view' },
-      // { label: 'Datasets',          path: '/admin/datasets',    icon: <TableChartIcon />,        permission: 'dataset.view' },
-      // { label: 'Dashboard Designer',path: '/admin/designer',    icon: <DesignServicesIcon />,    permission: 'dashboard.create' },
+      { label: 'Data Sources',      path: '/admin/data-sources',icon: <StorageIcon />,           permission: 'datasource.view', role: ['SYSTEM_ADMIN', 'DESIGNER'] },
+      { label: 'Datasets',          path: '/admin/datasets',    icon: <TableChartIcon />,        permission: 'dataset.view', role: ['SYSTEM_ADMIN', 'DESIGNER'] },
+      { label: 'Dashboard Designer',path: '/admin/designer',    icon: <DesignServicesIcon />,    permission: 'dashboard.create', role: ['SYSTEM_ADMIN', 'DESIGNER'] },
       // { label: 'All Dashboards',    path: '/admin/dashboards',  icon: <BarChartIcon />,          permission: 'dashboard.view' },
       // { label: 'Approvals',         path: '/admin/approvals',   icon: <CheckCircleOutlineIcon />,permission: 'dashboard.publish' },
       // { label: 'Audit Logs',        path: '/admin/audit',       icon: <HistoryIcon />,           permission: 'audit.view' },
@@ -90,7 +90,10 @@ export function Sidebar({ open }: SidebarProps) {
 
   function isAuthorized(item: NavItem): boolean {
     if (item.permission && !hasPermission(item.permission)) return false;
-    if (item.role && !hasRole(item.role)) return false;
+    if (item.role) {
+      const roles = Array.isArray(item.role) ? item.role : [item.role];
+      if (!roles.some(r => hasRole(r))) return false;
+    }
     return true;
   }
 

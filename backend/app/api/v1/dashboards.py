@@ -85,7 +85,7 @@ def list_dashboards(
 ):
     from app.models.dashboard import Dashboard, DashboardPermission, DashboardVersion
     from app.models.role import UserRole
-    if current_user.primary_role_name == "ADMIN":
+    if current_user.primary_role_name in ("ADMIN", "SYSTEM_ADMIN"):
         q = db.query(Dashboard).filter_by(is_active=True)
     else:
         role_ids = [r.role_id for r in db.query(UserRole).filter_by(user_id=current_user.id).all()]
