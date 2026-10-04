@@ -9,11 +9,35 @@ requires only a new connector class, not changes to the query engine.
 from __future__ import annotations
 
 import logging
+import re
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_ALLOWED_AGGS = frozenset({"SUM", "COUNT", "AVG", "MIN", "MAX", "COUNT_DISTINCT"})
+
+
+def quote_ident(name: str) -> str:
+    if not name or not _IDENT_RE.match(name):
+        raise ValueError("Invalid SQL identifier")
+    return f'"{name}"'
+
+
+def quote_table(schema_name: Optional[str], object_name: str) -> str:
+    obj = quote_ident(object_name)
+    if schema_name:
+        return f"{quote_ident(schema_name)}.{obj}"
+    return obj
+
+
+def safe_agg(agg: Optional[str]) -> str:
+    value = (agg or "SUM").upper()
+    if value not in _ALLOWED_AGGS:
+        raise ValueError("Invalid aggregation")
+    return value
 
 
 # ── Query abstraction ─────────────────────────────────────────────────────────
@@ -32,15 +56,67 @@ class DataScope:
     Represents the organizational data scope for a user.
     Built by security/data_scope.py from the authenticated user's profile.
     NEVER constructed from user-supplied request parameters.
+
+    Empty region/district/branch lists are NOT unrestricted.
+    unrestricted_org_access must be set by an explicit authorization policy.
     """
     access_level: str  # HEAD_OFFICE | REGION | DISTRICT | BRANCH
-    region_ids: Optional[list[int]] = None      # None = unrestricted
-    district_ids: Optional[list[int]] = None    # None = unrestricted
-    branch_ids: Optional[list[int]] = None      # None = unrestricted
+    region_ids: Optional[list[int]] = None
+    district_ids: Optional[list[int]] = None
+    branch_ids: Optional[list[int]] = None
+    unrestricted_org_access: bool = False
+    deny_all: bool = False
 
     @property
     def is_unrestricted(self) -> bool:
-        return self.access_level == "HEAD_OFFICE"
+        return bool(self.unrestricted_org_access) and not self.deny_all
+
+
+def empty_result(page: int, page_size: int) -> "QueryResult":
+    return QueryResult(columns=[], rows=[], total_count=0, page=page, page_size=page_size)
+
+
+def apply_org_scope_clauses(
+    qd: "QueryDefinition",
+    scope: DataScope,
+    params: dict,
+    prefix: str = "",
+) -> list[str]:
+    """
+    Return parameterized WHERE fragments for org scope.
+    Fail closed: if the user is restricted and no matching scope column exists,
+    return a clause that matches no rows.
+    """
+    if scope.deny_all:
+        return ["1 = 0"]
+    if scope.is_unrestricted:
+        return []
+
+    clauses: list[str] = []
+    if scope.branch_ids and qd.branch_column:
+        col = quote_ident(qd.branch_column)
+        keys = [f"{prefix}branch_id_{i}" for i, _ in enumerate(scope.branch_ids)]
+        clauses.append(f'{col} IN ({", ".join(":" + k for k in keys)})')
+        for k, bid in zip(keys, scope.branch_ids):
+            params[k] = bid
+        return clauses
+    if scope.district_ids and qd.district_column:
+        col = quote_ident(qd.district_column)
+        keys = [f"{prefix}district_id_{i}" for i, _ in enumerate(scope.district_ids)]
+        clauses.append(f'{col} IN ({", ".join(":" + k for k in keys)})')
+        for k, did in zip(keys, scope.district_ids):
+            params[k] = did
+        return clauses
+    if scope.region_ids and qd.region_column:
+        col = quote_ident(qd.region_column)
+        keys = [f"{prefix}region_id_{i}" for i, _ in enumerate(scope.region_ids)]
+        clauses.append(f'{col} IN ({", ".join(":" + k for k in keys)})')
+        for k, rid in zip(keys, scope.region_ids):
+            params[k] = rid
+        return clauses
+
+    # Restricted user but dataset has no applicable scope column → no rows
+    return ["1 = 0"]
 
 
 @dataclass
@@ -176,6 +252,8 @@ class PostgreSQLConnector(BaseConnector):
         page: int = 1,
         page_size: int = 25,
     ) -> QueryResult:
+        if scope.deny_all:
+            return empty_result(page, page_size)
         from sqlalchemy import text
         sql, params = self._build_sql(query_def, scope, page, page_size)
         count_sql, count_params = self._build_count_sql(query_def, scope)
@@ -207,45 +285,29 @@ class PostgreSQLConnector(BaseConnector):
         Scope filters are injected as WHERE conditions — never trusted from
         user-supplied parameters.
         """
-        table = f"{qd.schema_name}.{qd.object_name}" if qd.schema_name else qd.object_name
+        table = quote_table(qd.schema_name, qd.object_name)
         select_parts = []
         params: dict = {}
 
         # Dimensions
         for dim in qd.dimensions:
-            select_parts.append(f'"{dim.field_name}"')
+            select_parts.append(quote_ident(dim.field_name))
 
         # Metrics with aggregation
         for i, metric in enumerate(qd.metrics):
-            agg = metric.aggregation or "SUM"
+            agg = safe_agg(metric.aggregation)
+            field = quote_ident(metric.field_name)
+            alias = quote_ident(metric.field_name)
             if agg == "COUNT_DISTINCT":
-                select_parts.append(f'COUNT(DISTINCT "{metric.field_name}") AS "{metric.field_name}"')
+                select_parts.append(f"COUNT(DISTINCT {field}) AS {alias}")
             else:
-                select_parts.append(f'{agg}("{metric.field_name}") AS "{metric.field_name}"')
+                select_parts.append(f"{agg}({field}) AS {alias}")
 
         if not select_parts:
             select_parts = ["*"]
 
         select_clause = ", ".join(select_parts)
-        where_clauses = []
-
-        # ── Organizational scope (CRITICAL — injected from authenticated user) ──
-        if not scope.is_unrestricted:
-            if scope.branch_ids and qd.branch_column:
-                placeholders = ", ".join(f":branch_id_{i}" for i, _ in enumerate(scope.branch_ids))
-                where_clauses.append(f'"{qd.branch_column}" IN ({placeholders})')
-                for i, bid in enumerate(scope.branch_ids):
-                    params[f"branch_id_{i}"] = bid
-            elif scope.district_ids and qd.district_column:
-                placeholders = ", ".join(f":district_id_{i}" for i, _ in enumerate(scope.district_ids))
-                where_clauses.append(f'"{qd.district_column}" IN ({placeholders})')
-                for i, did in enumerate(scope.district_ids):
-                    params[f"district_id_{i}"] = did
-            elif scope.region_ids and qd.region_column:
-                placeholders = ", ".join(f":region_id_{i}" for i, _ in enumerate(scope.region_ids))
-                where_clauses.append(f'"{qd.region_column}" IN ({placeholders})')
-                for i, rid in enumerate(scope.region_ids):
-                    params[f"region_id_{i}"] = rid
+        where_clauses = apply_org_scope_clauses(qd, scope, params)
 
         # User-applied filters (already validated against dataset fields)
         for j, f in enumerate(qd.filters):
@@ -253,19 +315,20 @@ class PostgreSQLConnector(BaseConnector):
             op = f.get("operator", "eq")
             val = f.get("value")
             if col and val is not None:
+                quoted = quote_ident(col)
                 key = f"filter_{j}"
                 if op == "eq":
-                    where_clauses.append(f'"{col}" = :{key}')
+                    where_clauses.append(f"{quoted} = :{key}")
                 elif op == "gte":
-                    where_clauses.append(f'"{col}" >= :{key}')
+                    where_clauses.append(f"{quoted} >= :{key}")
                 elif op == "lte":
-                    where_clauses.append(f'"{col}" <= :{key}')
+                    where_clauses.append(f"{quoted} <= :{key}")
                 elif op == "like":
-                    where_clauses.append(f'"{col}" ILIKE :{key}')
+                    where_clauses.append(f"{quoted} ILIKE :{key}")
                     val = f"%{val}%"
                 elif op == "in":
                     keys = [f"{key}_{k}" for k in range(len(val))]
-                    where_clauses.append(f'"{col}" IN ({", ".join(":" + k for k in keys)})')
+                    where_clauses.append(f'{quoted} IN ({", ".join(":" + k for k in keys)})')
                     for k, v in zip(keys, val):
                         params[k] = v
                     continue
@@ -275,13 +338,13 @@ class PostgreSQLConnector(BaseConnector):
 
         group_by = ""
         if qd.dimensions and qd.metrics:
-            dims = ", ".join(f'"{d.field_name}"' for d in qd.dimensions)
+            dims = ", ".join(quote_ident(d.field_name) for d in qd.dimensions)
             group_by = f"GROUP BY {dims}"
 
         order_by = ""
         if qd.sort_by:
             direction = "DESC" if qd.sort_order.upper() == "DESC" else "ASC"
-            order_by = f'ORDER BY "{qd.sort_by}" {direction}'
+            order_by = f"ORDER BY {quote_ident(qd.sort_by)} {direction}"
 
         offset = (page - 1) * page_size
         sql = (
@@ -294,7 +357,7 @@ class PostgreSQLConnector(BaseConnector):
         return sql.strip(), params
 
     def _build_count_sql(self, qd: QueryDefinition, scope: DataScope) -> tuple[str, dict]:
-        table = f"{qd.schema_name}.{qd.object_name}" if qd.schema_name else qd.object_name
+        table = quote_table(qd.schema_name, qd.object_name)
         # Build a simplified count query reusing the same where logic
         # For now wrap in subquery approach
         inner_sql, params = self._build_sql(qd, scope, page=1, page_size=1_000_000)
@@ -386,6 +449,8 @@ class OracleConnector(BaseConnector):
         Oracle uses bind variables with :name syntax — same as SQLAlchemy text().
         Pagination uses OFFSET/FETCH (Oracle 12c+).
         """
+        if scope.deny_all:
+            return empty_result(page, page_size)
         sql, params = self._build_oracle_sql(query_def, scope, page, page_size)
         try:
             with self._get_connection() as conn:
@@ -420,52 +485,37 @@ class OracleConnector(BaseConnector):
         page: int,
         page_size: int,
     ) -> tuple[str, dict]:
-        table = f'"{qd.schema_name}"."{qd.object_name}"' if qd.schema_name else f'"{qd.object_name}"'
+        table = quote_table(qd.schema_name, qd.object_name)
         select_parts = []
         params: dict = {}
 
         for dim in qd.dimensions:
-            select_parts.append(f'"{dim.field_name}"')
+            select_parts.append(quote_ident(dim.field_name))
         for metric in qd.metrics:
-            agg = metric.aggregation or "SUM"
+            agg = safe_agg(metric.aggregation)
+            field = quote_ident(metric.field_name)
+            alias = quote_ident(metric.field_name)
             if agg == "COUNT_DISTINCT":
-                select_parts.append(f'COUNT(DISTINCT "{metric.field_name}") "{metric.field_name}"')
+                select_parts.append(f"COUNT(DISTINCT {field}) {alias}")
             else:
-                select_parts.append(f'{agg}("{metric.field_name}") "{metric.field_name}"')
+                select_parts.append(f"{agg}({field}) {alias}")
         if not select_parts:
             select_parts = ["*"]
 
         select_clause = ", ".join(select_parts)
-        where_clauses = []
-
-        if not scope.is_unrestricted:
-            if scope.branch_ids and qd.branch_column:
-                placeholders = ", ".join(f":branch_{i}" for i, _ in enumerate(scope.branch_ids))
-                where_clauses.append(f'"{qd.branch_column}" IN ({placeholders})')
-                for i, bid in enumerate(scope.branch_ids):
-                    params[f"branch_{i}"] = bid
-            elif scope.district_ids and qd.district_column:
-                placeholders = ", ".join(f":district_{i}" for i, _ in enumerate(scope.district_ids))
-                where_clauses.append(f'"{qd.district_column}" IN ({placeholders})')
-                for i, did in enumerate(scope.district_ids):
-                    params[f"district_{i}"] = did
-            elif scope.region_ids and qd.region_column:
-                placeholders = ", ".join(f":region_{i}" for i, _ in enumerate(scope.region_ids))
-                where_clauses.append(f'"{qd.region_column}" IN ({placeholders})')
-                for i, rid in enumerate(scope.region_ids):
-                    params[f"region_{i}"] = rid
+        where_clauses = apply_org_scope_clauses(qd, scope, params, prefix="ora_")
 
         where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
         group_by = ""
         if qd.dimensions and qd.metrics:
-            dims = ", ".join(f'"{d.field_name}"' for d in qd.dimensions)
+            dims = ", ".join(quote_ident(d.field_name) for d in qd.dimensions)
             group_by = f"GROUP BY {dims}"
 
         order_by = ""
         if qd.sort_by:
             direction = "DESC" if qd.sort_order.upper() == "DESC" else "ASC"
-            order_by = f'ORDER BY "{qd.sort_by}" {direction}'
+            order_by = f"ORDER BY {quote_ident(qd.sort_by)} {direction}"
 
         offset = (page - 1) * page_size
         sql = (
@@ -530,6 +580,8 @@ class InternalAPIConnector(BaseConnector):
         Calls the configured endpoint, injects org-scope params as query params.
         Response is expected to be JSON array or {data: [...], total: N}.
         """
+        if scope.deny_all:
+            return empty_result(page, page_size)
         import httpx
         params: dict = {"page": page, "page_size": page_size}
 
@@ -541,6 +593,8 @@ class InternalAPIConnector(BaseConnector):
                 params["district_ids"] = ",".join(str(d) for d in scope.district_ids)
             elif scope.region_ids:
                 params["region_ids"] = ",".join(str(r) for r in scope.region_ids)
+            else:
+                return empty_result(page, page_size)
 
         endpoint = query_def.object_name  # endpoint path for API sources
         url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
@@ -562,6 +616,121 @@ class InternalAPIConnector(BaseConnector):
         except Exception as e:
             logger.error(f"Internal API query failed: {e}")
             raise
+
+
+class ExcelConnector(BaseConnector):
+    """Read-only Excel workbook stored on the application server."""
+
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+
+    def test_connection(self) -> bool:
+        import os
+        return bool(self.file_path) and os.path.isfile(self.file_path)
+
+    def get_schema_objects(self, schema: str) -> list[str]:
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(self.file_path, read_only=True, data_only=True)
+            names = list(wb.sheetnames)
+            wb.close()
+            return names
+        except Exception as e:
+            logger.error(f"Excel get_schema_objects failed: {e}")
+            return []
+
+    def get_field_metadata(self, schema: str, object_name: str) -> list[dict]:
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(self.file_path, read_only=True, data_only=True)
+            ws = wb[object_name] if object_name in wb.sheetnames else wb.active
+            header = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
+            wb.close()
+            return [
+                {"field_name": str(h).strip(), "data_type": "TEXT", "nullable": True}
+                for h in header if h
+            ]
+        except Exception as e:
+            logger.error(f"Excel get_field_metadata failed: {e}")
+            return []
+
+    def _load_rows(self, sheet_name: Optional[str]) -> tuple[list[str], list[dict]]:
+        import openpyxl
+        wb = openpyxl.load_workbook(self.file_path, read_only=True, data_only=True)
+        ws = wb[sheet_name] if sheet_name and sheet_name in wb.sheetnames else wb.active
+        rows_iter = ws.iter_rows(values_only=True)
+        header_row = next(rows_iter, None)
+        if not header_row:
+            wb.close()
+            return [], []
+        columns = [str(h).strip() for h in header_row if h is not None]
+        data = []
+        for raw in rows_iter:
+            if all(v is None for v in raw):
+                continue
+            data.append({columns[i]: raw[i] if i < len(raw) else None for i in range(len(columns))})
+        wb.close()
+        return columns, data
+
+    def execute_query(
+        self,
+        query_def: QueryDefinition,
+        scope: DataScope,
+        page: int = 1,
+        page_size: int = 25,
+    ) -> QueryResult:
+        if scope.deny_all:
+            return empty_result(page, page_size)
+        columns, rows = self._load_rows(query_def.object_name)
+        if not scope.is_unrestricted:
+            col = None
+            allowed = None
+            if scope.branch_ids and query_def.branch_column:
+                col, allowed = query_def.branch_column, set(scope.branch_ids)
+            elif scope.district_ids and query_def.district_column:
+                col, allowed = query_def.district_column, set(scope.district_ids)
+            elif scope.region_ids and query_def.region_column:
+                col, allowed = query_def.region_column, set(scope.region_ids)
+            if not col:
+                return empty_result(page, page_size)
+            filtered = []
+            for row in rows:
+                try:
+                    val = int(row.get(col))
+                except (TypeError, ValueError):
+                    continue
+                if val in allowed:
+                    filtered.append(row)
+            rows = filtered
+        for f in query_def.filters:
+            field, op, val = f.get("field"), f.get("operator", "eq"), f.get("value")
+            if not field:
+                continue
+            def _keep(row, field=field, op=op, val=val):
+                cell = row.get(field)
+                if op == "eq":
+                    return str(cell) == str(val)
+                if op == "gte":
+                    return cell is not None and str(cell) >= str(val)
+                if op == "lte":
+                    return cell is not None and str(cell) <= str(val)
+                return True
+            rows = [r for r in rows if _keep(r)]
+        if query_def.dimensions and not query_def.metrics:
+            keep = [d.field_name for d in query_def.dimensions if d.field_name in (columns or [])]
+            if keep:
+                rows = [{k: r.get(k) for k in keep} for r in rows]
+                columns = keep
+        total = len(rows)
+        start = max((page - 1) * page_size, 0)
+        page_rows = rows[start:start + page_size]
+        return QueryResult(
+            columns=list(page_rows[0].keys()) if page_rows else columns,
+            rows=page_rows,
+            total_count=total,
+            page=page,
+            page_size=page_size,
+        )
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────
@@ -593,5 +762,7 @@ def get_connector(source_type: str, config: dict) -> BaseConnector:
             base_url=config["api_url"],
             auth_config=config.get("auth_config", {}),
         )
+    elif source_type == "EXCEL":
+        return ExcelConnector(file_path=config.get("file_path") or config.get("api_url") or "")
     else:
         raise ValueError(f"Unknown data source type: {source_type}")
