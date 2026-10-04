@@ -51,7 +51,7 @@ def resolve(employee_id: str, db: Session, provider: str = "mock") -> Authentica
         .all()
     )
     permissions = [r.code for r in perm_rows]
-    if role_name == "ADMIN":
+    if role_name == "SYSTEM_ADMIN":
         all_codes = [r.code for r in db.query(Permission.code).filter(Permission.is_active == True).all()]
         permissions = all_codes
 

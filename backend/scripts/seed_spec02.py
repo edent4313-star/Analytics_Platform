@@ -57,14 +57,16 @@ db.commit()
 
 print("Seeding mock_ad_users...")
 MOCK_AD = [
-    # employee_id, password,     full_name,           email,                      dept,      position,       username
-    ("CBE001", "Demo@1234", "Abebe Girma",      "abebe.girma@cbe.com.et",    "IT",       "System Administrator",  "admin"),
-    ("CBE002", "Demo@1234", "Hiwot Tadesse",    "hiwot.tadesse@cbe.com.et",  "RETAIL",   "Head Office Director",  "ho_user"),
-    ("CBE003", "Demo@1234", "Bekele Alemu",     "bekele.alemu@cbe.com.et",   "RETAIL",   "Regional Director",     "region_mgr"),
-    ("CBE004", "Demo@1234", "Tigist Haile",     "tigist.haile@cbe.com.et",   "RETAIL",   "District Manager",      "district_mgr"),
-    ("CBE005", "Demo@1234", "Dawit Kebede",     "dawit.kebede@cbe.com.et",   "RETAIL",   "Branch Manager",        "branch_mgr"),
-    ("CBE006", "Demo@1234", "Sara Mulugeta",    "sara.mulugeta@cbe.com.et",  "ANALYTICS","Senior Analyst",        "analyst"),
-    ("CBE007", "Demo@1234", "Yonas Tesfaye",    "yonas.tesfaye@cbe.com.et",  "RETAIL",   "Relationship Officer",  "viewer"),
+    # employee_id, password,     full_name,           email,                           dept,      position,       username
+    ("CBE001", "Demo@1234", "Abebe Girma",      "abebe.girma@cbe.com.et",       "IT",       "System Administrator",  "admin"),
+    ("CBE002", "Demo@1234", "Hiwot Tadesse",    "hiwot.tadesse@cbe.com.et",     "ANALYTICS","Senior Designer",        "designer1"),
+    ("CBE003", "Demo@1234", "Bekele Alemu",     "bekele.alemu@cbe.com.et",      "ANALYTICS","Senior Designer",        "designer2"),
+    ("CBE006", "Demo@1234", "Sara Mulugeta",    "sara.mulugeta@cbe.com.et",    "ANALYTICS","Senior Designer",        "designer3"),
+    ("CBE007", "Demo@1234", "Yonas Tesfaye",    "yonas.tesfaye@cbe.com.et",    "RETAIL",   "Relationship Officer",  "viewer1"),
+    ("CBE008", "Demo@1234", "Tigist Alemu",    "tigist.alemu@cbe.com.et",     "RETAIL",   "Relationship Officer",  "viewer2"),
+    ("CBE004", "Demo@1234", "Dawit Haile",     "dawit.haile@cbe.com.et",      "RETAIL",   "Relationship Officer",  "viewer3"),
+    ("CBE005", "Demo@1234", "Meron Kebede",    "meron.kebede@cbe.com.et",     "RETAIL",   "Relationship Officer",  "viewer4"),
+    ("CBE009", "Demo@1234", "Abebe Worku",     "abebe.worku@cbe.com.et",      "RETAIL",   "Relationship Officer",  "viewer5"),
 ]
 
 for eid, pwd, fname, email, dept, pos, uname in MOCK_AD:
@@ -75,21 +77,26 @@ for eid, pwd, fname, email, dept, pos, uname in MOCK_AD:
         ON CONFLICT (employee_id) DO UPDATE SET password_hash=:ph, full_name=:fn, email=:em
     """), {"eid": eid, "ph": ph, "fn": fname, "em": email, "dept": dept, "pos": pos})
 
-    # Update employee_id on existing user row
+    # Update employee_id on existing user row if username exists
+    # First clear any conflicting employee_ids from other users
+    db.execute(text("""
+        UPDATE users SET employee_id=NULL WHERE employee_id=:eid AND username!=:uname
+    """), {"eid": eid, "uname": uname})
+    # Then set the employee_id for the correct user
     db.execute(text("""
         UPDATE users SET employee_id=:eid, ad_provider='mock' WHERE username=:uname
     """), {"eid": eid, "uname": uname})
 
-    print(f"  {eid} → {uname} ({pos})")
+    print(f"  {eid} -> {uname} ({pos})")
 
 db.commit()
 
 # Seed user_positions
 print("Seeding user_positions...")
 POSITION_MAP = {
-    "CBE001": "SYS_ADMIN", "CBE002": "HO_DIRECTOR", "CBE003": "REGIONAL_DIR",
-    "CBE004": "DISTRICT_MGR", "CBE005": "BRANCH_MGR", "CBE006": "SR_ANALYST",
-    "CBE007": "REL_OFFICER",
+    "CBE001": "SYS_ADMIN", "CBE002": "SR_ANALYST", "CBE003": "SR_ANALYST",
+    "CBE006": "SR_ANALYST", "CBE007": "REL_OFFICER", "CBE008": "REL_OFFICER",
+    "CBE004": "REL_OFFICER", "CBE005": "REL_OFFICER", "CBE009": "REL_OFFICER",
 }
 for eid, pos_code in POSITION_MAP.items():
     db.execute(text("""

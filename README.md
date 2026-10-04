@@ -101,15 +101,21 @@ GRANT ALL PRIVILEGES ON DATABASE analytics_platform TO analytics_user;
 
 ## Demo Users (after seeding)
 
-| Username | Password | Role | Access Level |
-|---|---|---|---|
-| `admin` | `Admin@1234` | ADMIN | HEAD_OFFICE |
-| `ho_user` | `Pass@1234` | HEAD_OFFICE_USER | HEAD_OFFICE |
-| `region_mgr` | `Pass@1234` | REGIONAL_MANAGER | REGION (Region A) |
-| `district_mgr` | `Pass@1234` | DISTRICT_MANAGER | DISTRICT (District A1) |
-| `branch_mgr` | `Pass@1234` | BRANCH_MANAGER | BRANCH (Branch 001) |
-| `analyst` | `Pass@1234` | ANALYST | HEAD_OFFICE |
-| `viewer` | `Pass@1234` | VIEWER | BRANCH (Branch 001) |
+**Roles:** System Admin, Designer, Viewer
+
+| Username | Employee ID | Password | Role | Access Level |
+|---|---|---|---|---|
+| `admin` | CBE001 | Demo@1234 | SYSTEM_ADMIN | HEAD_OFFICE |
+| `designer1` | CBE002 | Demo@1234 | DESIGNER | HEAD_OFFICE |
+| `designer2` | CBE003 | Demo@1234 | DESIGNER | REGION (Region A) |
+| `designer3` | CBE006 | Demo@1234 | DESIGNER | HEAD_OFFICE |
+| `viewer1` | CBE007 | Demo@1234 | VIEWER | BRANCH (Branch 001) |
+| `viewer2` | CBE008 | Demo@1234 | VIEWER | REGION (Region B) |
+| `viewer3` | CBE004 | Demo@1234 | VIEWER | DISTRICT (District A1) |
+| `viewer4` | CBE005 | Demo@1234 | VIEWER | BRANCH (Branch 002) |
+| `viewer5` | CBE009 | Demo@1234 | VIEWER | BRANCH (Branch 001) |
+
+**Note:** You can login with either username or employee_id.
 
 ## Implementation Phases
 

@@ -76,13 +76,9 @@ db.flush()
 
 print("Seeding roles...")
 ROLE_DEFS = [
-    ("ADMIN",             "Administrator",         "Full system access", True),
-    ("HEAD_OFFICE_USER",  "Head Office User",      "Head office analytics access", True),
-    ("REGIONAL_MANAGER",  "Regional Manager",      "Regional data access", True),
-    ("DISTRICT_MANAGER",  "District Manager",      "District data access", True),
-    ("BRANCH_MANAGER",    "Branch Manager",        "Single branch data access", True),
-    ("ANALYST",           "Analyst",               "Dashboard creation and analytics", True),
-    ("VIEWER",            "Viewer",                "Read-only dashboard access", True),
+    ("SYSTEM_ADMIN",  "System Administrator",  "Full system access", True),
+    ("DESIGNER",      "Designer",              "Can create and edit dashboards", True),
+    ("VIEWER",        "Viewer",                "Read-only dashboard access", True),
 ]
 roles = {}
 for name, display, desc, is_sys in ROLE_DEFS:
@@ -93,13 +89,9 @@ db.flush()
 
 print("Seeding role permissions...")
 ROLE_PERMISSIONS = {
-    "ADMIN": list(perms.keys()),  # all
-    "HEAD_OFFICE_USER": ["dashboard.view","dashboard.export","user.view","dataset.view","datasource.view","audit.view"],
-    "REGIONAL_MANAGER": ["dashboard.view","dashboard.export","user.view","dataset.view"],
-    "DISTRICT_MANAGER": ["dashboard.view","dashboard.export","user.view"],
-    "BRANCH_MANAGER":   ["dashboard.view","dashboard.export"],
-    "ANALYST":          ["dashboard.view","dashboard.create","dashboard.edit","dashboard.export","dataset.view","datasource.view"],
-    "VIEWER":           ["dashboard.view"],
+    "SYSTEM_ADMIN": list(perms.keys()),  # all permissions
+    "DESIGNER":     ["dashboard.view","dashboard.create","dashboard.edit","dashboard.publish","dashboard.export","dataset.view","dataset.manage","datasource.view","datasource.create","datasource.edit"],
+    "VIEWER":       ["dashboard.view"],
 }
 for role_name, perm_codes in ROLE_PERMISSIONS.items():
     role = roles[role_name]
@@ -169,15 +161,15 @@ db.flush()
 print("Seeding demo users...")
 USER_DEFS = [
     # (username, full_name, email, password, access_level, region, district, branch, role)
-    ("admin",        "System Administrator",    "admin@analytics.internal",       "Admin@1234",  "HEAD_OFFICE", None,  None,  None,  "ADMIN"),
-    ("ho_user",      "Hiwot Tadesse",           "hiwot@analytics.internal",       "Pass@1234",   "HEAD_OFFICE", None,  None,  None,  "HEAD_OFFICE_USER"),
-    ("region_mgr",   "Bekele Girma",            "bekele@analytics.internal",      "Pass@1234",   "REGION",      "R01", None,  None,  "REGIONAL_MANAGER"),
-    ("region_mgr2",  "Tigist Alemu",            "tigist@analytics.internal",      "Pass@1234",   "REGION",      "R02", None,  None,  "REGIONAL_MANAGER"),
-    ("district_mgr", "Dawit Haile",             "dawit@analytics.internal",       "Pass@1234",   "DISTRICT",    "R01", "D01", None,  "DISTRICT_MANAGER"),
-    ("branch_mgr",   "Meron Kebede",            "meron@analytics.internal",       "Pass@1234",   "BRANCH",      "R01", "D01", "B001","BRANCH_MANAGER"),
-    ("branch_mgr2",  "Yonas Tesfaye",           "yonas@analytics.internal",       "Pass@1234",   "BRANCH",      "R01", "D01", "B002","BRANCH_MANAGER"),
-    ("analyst",      "Sara Mulugeta",           "sara@analytics.internal",        "Pass@1234",   "HEAD_OFFICE", None,  None,  None,  "ANALYST"),
-    ("viewer",       "Abebe Worku",             "abebe@analytics.internal",       "Pass@1234",   "BRANCH",      "R01", "D01", "B001","VIEWER"),
+    ("admin",        "System Administrator",    "admin@analytics.internal",           "Admin@1234",  "HEAD_OFFICE", None,  None,  None,  "SYSTEM_ADMIN"),
+    ("designer1",   "Hiwot Tadesse",           "designer1@analytics.internal",       "Pass@1234",   "HEAD_OFFICE", None,  None,  None,  "DESIGNER"),
+    ("designer2",   "Bekele Girma",            "designer2@analytics.internal",      "Pass@1234",   "REGION",      "R01", None,  None,  "DESIGNER"),
+    ("designer3",   "Sara Mulugeta",           "designer3@analytics.internal",       "Pass@1234",   "HEAD_OFFICE", None,  None,  None,  "DESIGNER"),
+    ("viewer1",     "Abebe Worku",             "viewer1@analytics.internal",         "Pass@1234",   "BRANCH",      "R01", "D01", "B001","VIEWER"),
+    ("viewer2",     "Tigist Alemu",            "viewer2@analytics.internal",        "Pass@1234",   "REGION",      "R02", None,  None,  "VIEWER"),
+    ("viewer3",     "Dawit Haile",             "viewer3@analytics.internal",        "Pass@1234",   "DISTRICT",    "R01", "D01", None,  "VIEWER"),
+    ("viewer4",     "Meron Kebede",            "viewer4@analytics.internal",        "Pass@1234",   "BRANCH",      "R01", "D01", "B002","VIEWER"),
+    ("viewer5",     "Yonas Tesfaye",           "viewer5@analytics.internal",        "Pass@1234",   "BRANCH",      "R01", "D01", "B001","VIEWER"),
 ]
 users = {}
 for uname, fname, email, pwd, access, reg, dist, branch, role_name in USER_DEFS:
@@ -257,7 +249,7 @@ print("Seeding FCY Lead Dashboard...")
 fcy_dash, created = upsert(Dashboard, {"code": "fcy-lead"}, {
     "name": "FCY Lead Dashboard",
     "description": "Foreign Currency Lead Generation performance dashboard",
-    "owner_id": users["analyst"].id,
+    "owner_id": users["designer1"].id,
     "created_by": users["admin"].id,
     "is_active": True,
 })
@@ -275,12 +267,12 @@ if created:
     db.flush()
 
     # Grant access to relevant roles
-    for role_name in ["ADMIN", "HEAD_OFFICE_USER", "REGIONAL_MANAGER", "DISTRICT_MANAGER", "BRANCH_MANAGER", "ANALYST", "VIEWER"]:
+    for role_name in ["SYSTEM_ADMIN", "DESIGNER", "VIEWER"]:
         db.add(DashboardPermission(
             dashboard_id=fcy_dash.id,
             role_id=roles[role_name].id,
             can_view=True,
-            can_export=(role_name in ["ADMIN", "HEAD_OFFICE_USER", "REGIONAL_MANAGER", "ANALYST"]),
+            can_export=(role_name in ["SYSTEM_ADMIN", "DESIGNER"]),
             granted_by=users["admin"].id,
         ))
 db.flush()
@@ -295,7 +287,7 @@ other_dashboards = [
 for code, name, desc in other_dashboards:
     d, created = upsert(Dashboard, {"code": code}, {
         "name": name, "description": desc,
-        "owner_id": users["analyst"].id,
+        "owner_id": users["designer1"].id,
         "created_by": users["admin"].id,
         "is_active": True,
     })
@@ -307,7 +299,7 @@ for code, name, desc in other_dashboards:
         )
         db.add(ver)
         db.flush()
-        for role_name in ["ADMIN", "HEAD_OFFICE_USER", "ANALYST"]:
+        for role_name in ["SYSTEM_ADMIN", "DESIGNER"]:
             db.add(DashboardPermission(
                 dashboard_id=d.id, role_id=roles[role_name].id,
                 can_view=True, can_export=True, granted_by=users["admin"].id,
@@ -316,12 +308,15 @@ db.flush()
 
 db.commit()
 print("\nSeed data complete.")
-print("\nDemo login credentials:")
-print("  admin        / Admin@1234  (ADMIN, HEAD_OFFICE)")
-print("  ho_user      / Pass@1234   (HEAD_OFFICE_USER, HEAD_OFFICE)")
-print("  region_mgr   / Pass@1234   (REGIONAL_MANAGER, Addis Ababa Region)")
-print("  district_mgr / Pass@1234   (DISTRICT_MANAGER, Bole District)")
-print("  branch_mgr   / Pass@1234   (BRANCH_MANAGER, Bole Main Branch)")
-print("  analyst      / Pass@1234   (ANALYST, HEAD_OFFICE)")
-print("  viewer       / Pass@1234   (VIEWER, Bole Main Branch)")
+print("\nNOTE: After running seed_spec02.py, use password 'Demo@1234' for all users.")
+print("\nDemo login credentials (username or employee_id):")
+print("  admin  / CBE001  - Demo@1234  (SYSTEM_ADMIN, HEAD_OFFICE)")
+print("  designer1  / CBE002  - Demo@1234  (DESIGNER, HEAD_OFFICE)")
+print("  designer2  / CBE003  - Demo@1234  (DESIGNER, REGION)")
+print("  designer3  / CBE006  - Demo@1234  (DESIGNER, HEAD_OFFICE)")
+print("  viewer1  / CBE007  - Demo@1234  (VIEWER, BRANCH)")
+print("  viewer2  / CBE008  - Demo@1234  (VIEWER, REGION)")
+print("  viewer3  / CBE004  - Demo@1234  (VIEWER, DISTRICT)")
+print("  viewer4  / CBE005  - Demo@1234  (VIEWER, BRANCH)")
+print("  viewer5  / CBE009  - Demo@1234  (VIEWER, BRANCH)")
 db.close()
